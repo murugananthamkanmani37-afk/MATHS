@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MathMentor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #eef2f7;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 720px;
+      height: 92vh;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      background: #4f46e5;
+      color: #ffffff;
+      padding: 16px 20px;
+    }
+
+    .chat-header h1 { font-size: 1.2rem; }
+    .chat-header p { font-size: 0.85rem; opacity: 0.85; margin-top: 2px; }
+
+    .chat-messages {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #f8fafc;
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 0.95rem;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: #4f46e5;
+      color: #ffffff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background: #e5e7eb;
+      color: #111827;
+      border-bottom-left-radius: 4px;
+    }
+
+    .message.error {
+      align-self: flex-start;
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .chat-input {
+      display: flex;
+      gap: 10px;
+      padding: 14px;
+      border-top: 1px solid #e5e7eb;
+      background: #ffffff;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .chat-input input:focus { border-color: #4f46e5; }
+
+    .chat-input button {
+      padding: 0 22px;
+      background: #4f46e5;
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    .chat-input button:hover { background: #4338ca; }
+    .chat-input button:disabled { background: #a5a3e8; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <h1>MathMentor</h1>
+      <p>Your Mathematics tutor. Ask me anything about maths.</p>
+    </div>
+
+    <div class="chat-messages" id="messages"></div>
+
+    <div class="chat-input">
+      <input type="text" id="userInput" placeholder="Type your maths question..." maxlength="1000" autocomplete="off">
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const messagesEl = document.getElementById("messages");
+    const inputEl = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const history = [];
+
+    function addMessage(text, type) {
+      const div = document.createElement("div");
+      div.className = `message ${type}`;
+      div.textContent = text;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
+    }
+
+    function setLoading(isLoading) {
+      sendBtn.disabled = isLoading;
+      inputEl.disabled = isLoading;
+      if (!isLoading) inputEl.focus();
+    }
+
+    async function sendMessage() {
+      const message = inputEl.value.trim();
+      if (!message) return;
+
+      addMessage(message, "user");
+      inputEl.value = "";
+      setLoading(true);
+      const typing = addMessage("Thinking...", "bot");
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message, history })
+        });
+        const data = await response.json();
+        typing.remove();
+
+        if (!response.ok) {
+          addMessage(data.error || "Something went wrong.", "error");
+        } else {
+          addMessage(data.reply, "bot");
+          history.push({ role: "user", text: message });
+          history.push({ role: "model", text: data.reply });
+        }
+      } catch (error) {
+        typing.remove();
+        addMessage("Network error. Please check your connection.", "error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    inputEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") sendMessage();
+    });
+
+    addMessage("Hi! I'm MathMentor. What maths problem can I help you with today?", "bot");
+  </script>
+</body>
+</html>
